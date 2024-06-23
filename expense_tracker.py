@@ -1,22 +1,42 @@
 from expense import Expense
+from user import User, register_user, login_user
 import calendar
 import datetime
-
 
 def main():
     print(f"🎯 Running Expense Tracker!")
     expense_file_path = "expenses.csv"
-    budget = 2000
+    
+    user = user_authentication()
+    
+    if user:
+        expense = get_user_expense()
+        save_expense_to_file(expense, expense_file_path, user.username)
+        summarize_expenses(expense_file_path, user)
 
-    # Get user input for expense.
-    expense = get_user_expense()
-
-    # Write their expense to a file.
-    save_expense_to_file(expense, expense_file_path)
-
-    # Read file and summarize expenses.
-    summarize_expenses(expense_file_path, budget)
-
+def user_authentication():
+    while True:
+        print("1. Register")
+        print("2. Login")
+        choice = input("Select an option: ")
+        
+        if choice == '1':
+            username = input("Enter a username: ")
+            password = input("Enter a password: ")
+            income = float(input("Enter your income: "))
+            register_user(username, password, income)
+            print("User registered successfully! Please log in.")
+        elif choice == '2':
+            username = input("Enter your username: ")
+            password = input("Enter your password: ")
+            user = login_user(username, password)
+            if user:
+                print(f"Welcome back, {user.username}!")
+                return user
+            else:
+                print("Invalid credentials. Please try again.")
+        else:
+            print("Invalid option. Please try again.")
 
 def get_user_expense():
     print(f"🎯 Getting User Expense")
@@ -47,26 +67,26 @@ def get_user_expense():
         else:
             print("Invalid category. Please try again!")
 
-
-def save_expense_to_file(expense: Expense, expense_file_path):
+def save_expense_to_file(expense: Expense, expense_file_path, username):
     print(f"🎯 Saving User Expense: {expense} to {expense_file_path}")
-    with open(expense_file_path, "a") as f:
-        f.write(f"{expense.name},{expense.amount},{expense.category}\n")
+    with open(expense_file_path, "a", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([username, expense.name, expense.amount, expense.category])
 
-
-def summarize_expenses(expense_file_path, budget):
+def summarize_expenses(expense_file_path, user):
     print(f"🎯 Summarizing User Expense")
-    expenses: list[Expense] = []
+    expenses = []
     with open(expense_file_path, "r") as f:
-        lines = f.readlines()
-        for line in lines:
-            expense_name, expense_amount, expense_category = line.strip().split(",")
-            line_expense = Expense(
-                name=expense_name,
-                amount=float(expense_amount),
-                category=expense_category,
-            )
-            expenses.append(line_expense)
+        reader = csv.reader(f)
+        for row in reader:
+            if row[0] == user.username:
+                expense_name, expense_amount, expense_category = row[1], row[2], row[3]
+                line_expense = Expense(
+                    name=expense_name,
+                    amount=float(expense_amount),
+                    category=expense_category,
+                )
+                expenses.append(line_expense)
 
     amount_by_category = {}
     for expense in expenses:
@@ -83,7 +103,7 @@ def summarize_expenses(expense_file_path, budget):
     total_spent = sum([x.amount for x in expenses])
     print(f"💵 Total Spent: ${total_spent:.2f}")
 
-    remaining_budget = budget - total_spent
+    remaining_budget = user.income - total_spent
     print(f"✅ Budget Remaining: ${remaining_budget:.2f}")
 
     now = datetime.datetime.now()
@@ -93,10 +113,8 @@ def summarize_expenses(expense_file_path, budget):
     daily_budget = remaining_budget / remaining_days
     print(green(f"👉 Budget Per Day: ${daily_budget:.2f}"))
 
-
 def green(text):
     return f"\033[92m{text}\033[0m"
-
 
 if __name__ == "__main__":
     main()
